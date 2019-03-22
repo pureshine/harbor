@@ -26,9 +26,10 @@ import {
 } from "@angular/core";
 import { Comparator } from "../service/interface";
 import { TranslateService } from "@ngx-translate/core";
-import { map, catchError } from "rxjs/operators";
-import { Observable, forkJoin, throwError as observableThrowError } from "rxjs";
+import { map, catchError, finalize } from "rxjs/operators";
+import { Observable, forkJoin, of, throwError as observableThrowError } from "rxjs";
 import { ReplicationService } from "../service/replication.service";
+import { EndpointService } from "../service/endpoint.service";
 
 import {
     ReplicationJob,
@@ -82,7 +83,9 @@ export class ListReplicationRuleComponent implements OnInit, OnChanges {
     changedRules: ReplicationRule[];
     ruleName: string;
     canDeleteRule: boolean;
-    srcRegistry: string = 'docker hub';
+    srcRegistry: [] = [];
+    desRegistry: [] = [];
+    currentRegistry: string;
 
     selectedRow: ReplicationRule;
 
@@ -96,6 +99,7 @@ export class ListReplicationRuleComponent implements OnInit, OnChanges {
     enabledComparator: Comparator<ReplicationRule> = new CustomComparator<ReplicationRule>("enabled", "number");
 
     constructor(private replicationService: ReplicationService,
+        private endpointService: EndpointService,
         private translateService: TranslateService,
         private errorHandler: ErrorHandler,
         private operationService: OperationService,
@@ -116,6 +120,9 @@ export class ListReplicationRuleComponent implements OnInit, OnChanges {
         if (!this.projectScope) {
             this.retrieveRules();
         }
+        this.translateService.get("REPLICATION.CURRENT").subscribe((res: string) => {
+            this.currentRegistry = res;
+        });
     }
     ngOnChanges(changes: SimpleChanges): void {
         let proIdChange: SimpleChange = changes["projectId"];
@@ -140,7 +147,32 @@ export class ListReplicationRuleComponent implements OnInit, OnChanges {
                 // job list hidden
                 this.hideJobs.emit();
                 this.changedRules = this.rules;
-                this.loading = false;
+                // get registry name
+                let targetLists: ReplicationRule[] = rules;
+                if (targetLists && targetLists.length) {
+                    let srcRegistryList: any[] = [];
+                    let desRegistryList: any[] = [];
+                    targetLists.forEach(target => {
+                        if (target.src_registry_id > 0) {
+                            srcRegistryList.push(this.getSrcRegistry(target));
+                            desRegistryList.push(of({name: this.currentRegistry}));
+                        } else {
+                            srcRegistryList.push(of({name: this.currentRegistry}));
+                            desRegistryList.push(this.getDesRegistry(target));
+                        }
+                    });
+                    forkJoin(...srcRegistryList).subscribe((item) => {
+                        this.selectedRow = null;
+                        this.srcRegistry = item.map(srcRegistry => srcRegistry.name);
+                        this.loading = false;
+                    }, error => this.errorHandler.error(error));
+
+                    forkJoin(...desRegistryList).subscribe((item) => {
+                        this.selectedRow = null;
+                        this.desRegistry = item.map(desRegistry => desRegistry.name);
+                        this.loading = false;
+                    }, error => this.errorHandler.error(error));
+                }
             }, error => {
                 this.errorHandler.error(error);
                 this.loading = false;
@@ -149,6 +181,14 @@ export class ListReplicationRuleComponent implements OnInit, OnChanges {
 
     replicateRule(rule: ReplicationRule): void {
         this.replicateManual.emit(rule);
+    }
+
+    getSrcRegistry(target: ReplicationRule) {
+        return this.endpointService.getEndpoint(target.src_registry_id);
+    }
+
+    getDesRegistry(target: ReplicationRule) {
+        return this.endpointService.getEndpoint(target.dest_registry_id);
     }
 
     hasDeletedLabel(rule: any) {
