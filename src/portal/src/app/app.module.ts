@@ -27,7 +27,7 @@ import { TranslateService } from "@ngx-translate/core";
 import { AppConfigService } from './app-config.service';
 import { SkinableConfig } from "./skinable-config.service";
 import { ProjectConfigComponent } from './project/project-config/project-config.component';
-
+import {NgxEchartsModule} from 'ngx-echarts';
 import zh from '@angular/common/locales/zh-Hans';
 import es from '@angular/common/locales/es';
 import localeFr from '@angular/common/locales/fr';
@@ -54,6 +54,7 @@ export function getCurrentLanguage(translateService: TranslateService) {
         ProjectConfigComponent
     ],
     imports: [
+      NgxEchartsModule,
         BrowserModule,
         SharedModule,
         BaseModule,

@@ -5,10 +5,12 @@ import { FormsModule } from '@angular/forms';
 import { HttpModule } from '@angular/http';
 import { ClarityModule } from '@clr/angular';
 import { HarborLibraryModule } from './harbor-library.module';
+import {NgxEchartsModule} from 'ngx-echarts';
 
 @NgModule({
     declarations: [],
     imports: [
+        NgxEchartsModule,
         BrowserAnimationsModule,
         BrowserModule,
         FormsModule,
